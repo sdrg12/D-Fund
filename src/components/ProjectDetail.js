@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ethers } from 'ethers';
 
-// 하드코딩된 Ganache의 account[0] 주소
+// Ganache를 켤 때마다 account[0]의 주소로 하드코딩 해 줘야 함
 const platformAddress = '0x30A45A7506D9C916336D1537C9d00361169dB22A';
 
 const projects = [
