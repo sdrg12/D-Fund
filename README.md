@@ -1,2 +1,0 @@
-# D-Fund
-Capstone Project
