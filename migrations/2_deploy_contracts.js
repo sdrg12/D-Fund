@@ -1,6 +1,5 @@
-const DonateEther = artifacts.require("donateEther");
+const DFund = artifacts.require("DFund");
 
-module.exports = async function (deployer, network, accounts) {
-  const platformAccount = accounts[0];
-  await deployer.deploy(DonateEther, platformAccount);
+module.exports = function (deployer) {
+  deployer.deploy(DFund);
 };

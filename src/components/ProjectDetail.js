@@ -1,92 +1,108 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+// ProjectDetail.js
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { ethers } from 'ethers';
+import DFundABI from '../truffle_abis/DFund.json';
 
-// Ganache를 켤 때마다 account[0]의 주소로 하드코딩 해 줘야 함
-const platformAddress = '0x30A45A7506D9C916336D1537C9d00361169dB22A';
-
-const projects = [
-  {
-    id: 1,
-    title: 'Test 1',
-    description: 'This is donation test 1.',
-    targetAmount: 10,
-    deadline: '2025-12-31',
-    contractAddress: platformAddress,
-  },
-  {
-    id: 2,
-    title: 'Test 2',
-    description: 'This is donation test 2.',
-    targetAmount: 5,
-    deadline: '2025-11-30',
-    contractAddress: platformAddress,
-  },
-];
+const CONTRACT_ADDRESS = '0x002Ebfc4Ec60963d28129d223F0F63A7b8d5B13C'; // 🛠️ 반드시 실제 배포 주소로 교체할 것
 
 function ProjectDetail() {
   const { id } = useParams();
-  const project = projects.find((p) => p.id === parseInt(id));
-  const navigate = useNavigate();
+  const [project, setProject] = useState(null);
+  const [status, setStatus] = useState('⏳ 로딩 중...');
   const [amount, setAmount] = useState('');
-  const storageKey = `fundedAmount-${project?.id}`;
-  const [fundedAmount, setFundedAmount] = useState(() => {
-    const saved = localStorage.getItem(storageKey);
-    return saved ? parseFloat(saved) : 0;
-  });
+  const [fundedAmount, setFundedAmount] = useState('0');
+
+  useEffect(() => {
+    const fetchProject = async () => {
+      try {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, DFundABI.abi, provider);
+        const data = await contract.projects(id);
+
+        if (!data || data.title === '') {
+          setStatus('❌ 프로젝트를 찾을 수 없습니다.');
+          return;
+        }
+
+        const balance = await contract.projectBalance(id);
+
+        setProject({
+          id: data.id.toString(),
+          creator: data.creator,
+          title: data.title,
+          description: data.description,
+          goalAmount: ethers.utils.formatEther(data.goalAmount),
+          deadline: new Date(data.deadline.toNumber() * 1000).toLocaleString(),
+          expertReviewRequested: data.expertReviewRequested,
+        });
+
+        setFundedAmount(ethers.utils.formatEther(balance));
+        setStatus('');
+      } catch (err) {
+        console.error(err);
+        setStatus('❌ 오류 발생');
+      }
+    };
+
+    fetchProject();
+  }, [id]);
 
   const handleFund = async () => {
     if (!window.ethereum) {
-      alert('Please install MetaMask!');
+      alert('Metamask가 필요합니다.');
       return;
     }
 
     try {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
-      const contract = new ethers.Contract(
-        project.contractAddress,
-        ['function donateEther() external payable'],
-        signer
-      );
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, DFundABI.abi, signer);
 
-      const txResponse = await contract.donateEther({
+      const tx = await contract.donateToProject(project.id, {
         value: ethers.utils.parseEther(amount),
       });
 
-      await txResponse.wait();
-      const newTotal = fundedAmount + parseFloat(amount);
-      setFundedAmount(newTotal);
-      localStorage.setItem(storageKey, newTotal.toString());
+      await tx.wait();
+      alert(`후원 성공! Tx Hash: ${tx.hash}`);
+      setAmount('');
 
-      alert(`후원 성공! 트랜잭션 해시: ${txResponse.hash}`);
-    } catch (error) {
-      console.error('Error sending transaction:', error);
-      alert('후원 실패. 다시 시도해 주세요.');
+      // 후원 후 금액 갱신
+      const updated = await contract.projectBalance(project.id);
+      setFundedAmount(ethers.utils.formatEther(updated));
+    } catch (err) {
+      console.error(err);
+      alert('후원 실패');
     }
   };
 
-  if (!project) {
-    return <p>프로젝트를 찾을 수 없습니다.</p>;
-  }
+  if (status) return <p>{status}</p>;
+  if (!project) return null;
 
   return (
-    <div style={{ padding: '2rem' }}>
-      <button onClick={() => navigate('/')}>🏠 메인 페이지로</button>
-      <h2>📌 프로젝트 상세: {project.title}</h2>
-      <p>{project.description}</p>
-      <p>🗓️ 마감 날짜: {project.deadline}</p>
-      <p>🎯 목표 금액: {project.targetAmount} ETH</p>
-      <p>💰 현재 모인 금액: {fundedAmount} ETH</p>
-      <input
-        type="number"
-        placeholder="후원 금액 (ETH)"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-      />
-      <button onClick={handleFund} style={{ marginLeft: '1rem' }}>
-        💸 후원하기
-      </button>
+    <div style={{ maxWidth: '700px', margin: '2rem auto', fontFamily: 'sans-serif' }}>
+      <h2>📌 {project.title}</h2>
+      <p><strong>🆔 ID:</strong> {project.id}</p>
+      <p><strong>📝 설명:</strong> {project.description}</p>
+      <p><strong>🎯 목표 금액:</strong> {project.goalAmount} ETH</p>
+      <p><strong>📅 마감일:</strong> {project.deadline}</p>
+      <p><strong>💰 현재 모금된 금액:</strong> {fundedAmount} ETH</p>
+      <p><strong>🧠 전문가 심사 요청:</strong> {project.expertReviewRequested ? '예' : '아니오'}</p>
+      <p><strong>👤 등록자 주소:</strong> {project.creator}</p>
+
+      <div style={{ marginTop: '2rem' }}>
+        <h3>💸 후원하기</h3>
+        <input
+          type="number"
+          placeholder="후원 금액 (ETH)"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          style={{ padding: '0.5rem', marginRight: '1rem' }}
+        />
+        <button onClick={handleFund} style={{ padding: '0.5rem 1rem' }}>
+          💰 후원하기
+        </button>
+      </div>
     </div>
   );
 }

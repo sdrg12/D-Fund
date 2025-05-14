@@ -1,29 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
-import { useNavigate } from 'react-router-dom';
-
-const projects = [
-  {
-    id: 1,
-    title: 'Test 1',
-    description: 'This is donation test 1.',
-    targetAmount: 10, // 목표 금액
-    deadline: '2025-12-31', // 마감 날짜
-    contractAddress: '0xYourContractAddress1', // 스마트 컨트랙트 주소
-  },
-  {
-    id: 2,
-    title: 'Test 2',
-    description: 'This is donation test 2.',
-    targetAmount: 5,
-    deadline: '2025-11-30',
-    contractAddress: '0xYourContractAddress2',
-  },
-];
+import { useNavigate } from 'react-router-dom'; // 라우터 추가
 
 function Main() {
   const [walletAddress, setWalletAddress] = useState('');
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // 페이지 이동 함수
 
   const connectWallet = async () => {
     if (!window.ethereum) {
@@ -42,34 +23,36 @@ function Main() {
     }
   };
 
+  // Metamask 계정 변경 감지
+  useEffect(() => {
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', (accounts) => {
+        if (accounts.length > 0) {
+          setWalletAddress(accounts[0]);
+        } else {
+          setWalletAddress('');
+        }
+      });
+    }
+  }, []);
+
   return (
-    <div style={{ padding: '2rem' }}>
-      <h2 style={{ textAlign: 'center' }}>🔥 지원 가능한 프로젝트</h2>
+    <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <h2>Welcome to D-Fund</h2>
+      <button onClick={connectWallet}>🔗 Connect Wallet</button>
 
-      {/* 지갑 연결 버튼 */}
-      <button onClick={connectWallet}>
-        {walletAddress ? `🔗 ${walletAddress.slice(0, 5)}...${walletAddress.slice(-4)}` : '🔗 Connect Wallet'}
-      </button>
-
-      {/* 프로젝트 목록 */}
-      <div style={{ display: 'flex', gap: '2rem', justifyContent: 'center', marginTop: '2rem' }}>
-        {projects.map((project) => (
-          <div
-            key={project.id}
-            style={{
-              border: '1px solid #ccc',
-              borderRadius: '1rem',
-              padding: '1rem',
-              width: '250px',
-              cursor: 'pointer',
-            }}
-            onClick={() => navigate(`/project/${project.id}`)} // 상세 페이지로 이동
-          >
-            <h3>{project.title}</h3>
-            <p>{project.description}</p>
-          </div>
-        ))}
-      </div>
+      {walletAddress && (
+        <>
+          <p>
+            ✅ 연결된 지갑: <br />
+            <strong>{walletAddress}</strong>
+          </p>
+          {/* 프로젝트 등록 버튼 추가 */}
+          <button onClick={() => navigate('/register')} style={{ marginTop: '1rem' }}>
+            ➕ 프로젝트 등록
+          </button>
+        </>
+      )}
     </div>
   );
 }
