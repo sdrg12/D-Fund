@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { ethers } from 'ethers';
 import DFundABI from '../truffle_abis/DFund.json';
 import { CONTRACT_ADDRESS } from '../web3/DFundContract'; // 추출한 계약의 주소를 그대로 사용
+import { getStatusLabel } from '../utils/statusUtils';  // 프로젝트 진행 상태를 문자로 표현현
 
 function AllProjects() {
   const [projects, setProjects] = useState([]);
@@ -36,6 +37,7 @@ function AllProjects() {
               deadline: new Date(p.deadline.toNumber() * 1000).toLocaleString(),
               expertReviewRequested: p.expertReviewRequested,
               fundedAmount: ethers.utils.formatEther(balance),
+              status: getStatusLabel(p.status)
             });
           }
         }
@@ -91,6 +93,7 @@ function AllProjects() {
               <p><strong>📅 마감일:</strong> {project.deadline}</p>
               <p><strong>🧠 전문가 심사 요청:</strong> {project.expertReviewRequested ? '예' : '아니오'}</p>
               <p><strong>👤 등록자 주소:</strong> {project.creator}</p>
+              <p><strong>📍 현재 상태:</strong> {project.status}</p>
             </div>
           </Link>
         ))
