@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { ethers } from 'ethers';
 import DFundABI from '../truffle_abis/DFund.json';
-
-const CONTRACT_ADDRESS = '0x002Ebfc4Ec60963d28129d223F0F63A7b8d5B13C';
+import { CONTRACT_ADDRESS } from '../web3/DFundContract'; // 추출한 계약의 주소를 그대로 사용
 
 function RegisterProject() {
   const [title, setTitle] = useState('');
@@ -92,9 +91,9 @@ function RegisterProject() {
           style={{ width: '100%', marginBottom: '0.5rem' }}
         />
 
-        <label>마감일</label>
+        <label>마감일 및 시간</label>
         <input
-          type="date"
+          type="datetime-local"
           value={deadline}
           onChange={(e) => setDeadline(e.target.value)}
           style={{ width: '100%', marginBottom: '0.5rem' }}
