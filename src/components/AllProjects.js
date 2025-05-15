@@ -37,7 +37,7 @@ function AllProjects() {
               deadline: new Date(p.deadline.toNumber() * 1000).toLocaleString(),
               expertReviewRequested: p.expertReviewRequested,
               fundedAmount: ethers.utils.formatEther(balance),
-              status: getStatusLabel(p.status)
+              status: p.status
             });
           }
         }
@@ -93,7 +93,7 @@ function AllProjects() {
               <p><strong>📅 마감일:</strong> {project.deadline}</p>
               <p><strong>🧠 전문가 심사 요청:</strong> {project.expertReviewRequested ? '예' : '아니오'}</p>
               <p><strong>👤 등록자 주소:</strong> {project.creator}</p>
-              <p><strong>📍 현재 상태:</strong> {project.status}</p>
+              <p><strong>📍 현재 상태:</strong> {getStatusLabel(project.status)}</p>
             </div>
           </Link>
         ))

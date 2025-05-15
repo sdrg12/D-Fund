@@ -5,11 +5,11 @@ contract DFund {
     uint public projectCount = 0;   // 전체 등록된 프로젝트 수
 
     enum ProjectStatus {    // 프로젝트 진행 상태
-        Fundraising,   // 0: 모금 중
-        InProgress,    // 1: 프로젝트 실행 중
-        Completed,     // 2: 프로젝트 정상 완료
-        Failed,        // 3: 실패 (모금 실패 또는 중단)
-        Cancelled      // 4: 자발적 취소
+        FUNDRAISING,   // 0: 모금 중
+        IN_PROGRESS,    // 1: 프로젝트 실행 중
+        COMPLETED,     // 2: 프로젝트 정상 완료
+        FAILED,        // 3: 실패 (모금 실패 또는 중단)
+        CANCELLED      // 4: 자발적 취소
     }
 
     struct Project {    // 프로젝트 구조체 정의
@@ -62,7 +62,7 @@ contract DFund {
             deadline: _deadline,
             expertReviewRequested: _expertReviewRequested,
             isActive: true,
-            status: ProjectStatus.Fundraising
+            status: ProjectStatus.FUNDRAISING   // 여기 다른걸로 바꾸면 후원 버튼 막힘
         });
 
         emit ProjectRegistered(
@@ -112,7 +112,7 @@ contract DFund {
     function donateToProject(uint _projectId) external payable {
         require(msg.value > 0, "Must send ETH");
         require(projects[_projectId].isActive, "Invalid project");
-        require(projects[_projectId].status == ProjectStatus.Fundraising, "Project not fundraising");
+        require(projects[_projectId].status == ProjectStatus.FUNDRAISING, "Project not fundraising");
 
         projectBalance[_projectId] += msg.value;
     }

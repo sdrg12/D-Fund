@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { ethers } from 'ethers';
 import DFundABI from '../truffle_abis/DFund.json';
 import { CONTRACT_ADDRESS } from '../web3/DFundContract'; // 추출한 계약의 주소를 그대로 사용
-import { getStatusLabel } from '../utils/statusUtils';  // 프로젝트 진행 상태를 문자로 표현현
+import { isFundableStatus, getStatusLabel } from '../utils/statusUtils';  // 프로젝트 진행 상태를 문자로 표현현
 
 function ProjectDetail() {
   const { id } = useParams();
@@ -35,7 +35,7 @@ function ProjectDetail() {
           goalAmount: ethers.utils.formatEther(data.goalAmount),
           deadline: new Date(data.deadline.toNumber() * 1000).toLocaleString(),
           expertReviewRequested: data.expertReviewRequested,
-          status: getStatusLabel(data.status)
+          status: data.status
         });
 
         setFundedAmount(ethers.utils.formatEther(balance));
@@ -90,7 +90,7 @@ function ProjectDetail() {
       <p><strong>💰 현재 모금된 금액:</strong> {fundedAmount} ETH</p>
       <p><strong>🧠 전문가 심사 요청:</strong> {project.expertReviewRequested ? '예' : '아니오'}</p>
       <p><strong>👤 등록자 주소:</strong> {project.creator}</p>
-      <p><strong>📍 현재 상태:</strong> {getStatusLabel(data.status)}</p>
+      <p><strong>📍 현재 상태:</strong> {getStatusLabel(project.status)}</p>
 
       <div style={{ marginTop: '2rem' }}>
         <h3>💸 후원하기</h3>
@@ -101,9 +101,26 @@ function ProjectDetail() {
           onChange={(e) => setAmount(e.target.value)}
           style={{ padding: '0.5rem', marginRight: '1rem' }}
         />
-        <button onClick={handleFund} style={{ padding: '0.5rem 1rem' }}>
-          💰 후원하기
+        <button
+          onClick={handleFund}
+          disabled={!isFundableStatus(project.status)} // ⬅️ 후원 불가능 시 비활성화
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: isFundableStatus(project.status) ? '#4CAF50' : '#ccc',
+            color: isFundableStatus(project.status) ? '#fff' : '#666',
+            cursor: isFundableStatus(project.status) ? 'pointer' : 'not-allowed',
+            border: 'none',
+            borderRadius: '5px',
+          }}
+        >
+          {isFundableStatus(project.status) ? '💰 후원하기' : '⛔ 후원할 수 없습니다'} {/* ⬅️ 상태별 텍스트 */}
         </button>
+
+        {!isFundableStatus(project.status) && (
+          <p style={{ color: 'red', marginTop: '0.5rem' }}>
+            ※ 현재 상태에서는 후원이 불가능합니다. 상태: <strong>{getStatusLabel(project.status)}</strong>
+          </p>
+        )}
       </div>
     </div>
   );
