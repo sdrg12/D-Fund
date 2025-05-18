@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { ethers } from 'ethers';
 import DFundABI from '../truffle_abis/DFund.json';
 import { CONTRACT_ADDRESS } from '../web3/DFundContract'; // 추출한 계약의 주소를 그대로 사용
-import { getStatusLabel } from '../utils/statusUtils';  // 프로젝트 진행 상태를 문자로 표현현
+import { getStatusLabel } from '../utils/statusUtils';  // 프로젝트 진행 상태를 문자로 표현
 
 function AllProjects() {
   const [projects, setProjects] = useState([]);
@@ -27,14 +27,14 @@ function AllProjects() {
         for (let i = 1; i <= count; i++) {
           const p = await contract.projects(i);
           if (p.id.toNumber() !== 0 && p.title !== '' && p.isActive) {
-            const balance = await contract.projectBalance(p.id);
+            const balance = await contract.getTotalDonated(p.id);
             loadedProjects.push({
               id: p.id.toString(),
               creator: p.creator,
               title: p.title,
               description: p.description,
               goalAmount: ethers.utils.formatEther(p.goalAmount),
-              deadline: new Date(p.deadline.toNumber() * 1000).toLocaleString(),
+              deadline: p.deadline.toNumber(),
               expertReviewRequested: p.expertReviewRequested,
               fundedAmount: ethers.utils.formatEther(balance),
               status: p.status
@@ -90,7 +90,7 @@ function AllProjects() {
               <p><strong>📝 설명:</strong> {project.description}</p>
               <p><strong>🎯 목표 금액:</strong> {project.goalAmount} ETH</p>
               <p><strong>💰 현재 모금액:</strong> {project.fundedAmount} ETH</p>
-              <p><strong>📅 마감일:</strong> {project.deadline}</p>
+              <p><strong>📅 마감일:</strong> {new Date(project.deadline * 1000).toLocaleString()}</p>
               <p><strong>🧠 전문가 심사 요청:</strong> {project.expertReviewRequested ? '예' : '아니오'}</p>
               <p><strong>👤 등록자 주소:</strong> {project.creator}</p>
               <p><strong>📍 현재 상태:</strong> {getStatusLabel(project.status)}</p>

@@ -25,7 +25,7 @@ function RegisterProject() {
       const signer = provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, DFundABI.abi, signer);
       const goalInWei = ethers.utils.parseEther(goalAmount);
-      const deadlineTimestamp = Math.floor(new Date(deadline).getTime() / 1000);
+      const deadlineTimestamp = data.deadline.toNumber();
 
       console.log('Registering project...');
       const tx = await contract.registerProject(

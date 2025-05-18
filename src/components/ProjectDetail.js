@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { ethers } from 'ethers';
 import DFundABI from '../truffle_abis/DFund.json';
 import { CONTRACT_ADDRESS } from '../web3/DFundContract'; // 추출한 계약의 주소를 그대로 사용
-import { isFundableStatus, getStatusLabel } from '../utils/statusUtils';  // 프로젝트 진행 상태를 문자로 표현현
+import { isFundableStatus, getStatusLabel } from '../utils/statusUtils';  // 프로젝트 진행 상태를 문자로 표현
 
 function ProjectDetail() {
   const { id } = useParams();
@@ -25,7 +25,7 @@ function ProjectDetail() {
           return;
         }
 
-        const balance = await contract.projectBalance(id);
+        const balance = await contract.getTotalDonated(id);
 
         setProject({
           id: data.id.toString(),
@@ -33,7 +33,7 @@ function ProjectDetail() {
           title: data.title,
           description: data.description,
           goalAmount: ethers.utils.formatEther(data.goalAmount),
-          deadline: new Date(data.deadline.toNumber() * 1000).toLocaleString(),
+          deadline: data.deadline.toNumber(),
           expertReviewRequested: data.expertReviewRequested,
           status: data.status
         });
@@ -69,7 +69,7 @@ function ProjectDetail() {
       setAmount('');
 
       // 후원 후 금액 갱신
-      const updated = await contract.projectBalance(project.id);
+      const updated = await contract.getTotalDonated(project.id);
       setFundedAmount(ethers.utils.formatEther(updated));
     } catch (err) {
       console.error(err);
@@ -86,7 +86,7 @@ function ProjectDetail() {
       <p><strong>🆔 ID:</strong> {project.id}</p>
       <p><strong>📝 설명:</strong> {project.description}</p>
       <p><strong>🎯 목표 금액:</strong> {project.goalAmount} ETH</p>
-      <p><strong>📅 마감일:</strong> {project.deadline}</p>
+      <p><strong>📅 마감일:</strong> {new Date(project.deadline * 1000).toLocaleString()}</p>
       <p><strong>💰 현재 모금된 금액:</strong> {fundedAmount} ETH</p>
       <p><strong>🧠 전문가 심사 요청:</strong> {project.expertReviewRequested ? '예' : '아니오'}</p>
       <p><strong>👤 등록자 주소:</strong> {project.creator}</p>
@@ -115,6 +115,67 @@ function ProjectDetail() {
         >
           {isFundableStatus(project.status) ? '💰 후원하기' : '⛔ 후원할 수 없습니다'} {/* ⬅️ 상태별 텍스트 */}
         </button>
+
+        // 후원 마감 버튼 추가
+        {window.ethereum && (
+          <button
+            onClick={async () => {
+              try {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+                const userAddress = await signer.getAddress();
+
+                // ✅ 프로젝트 생성자만 마감 가능
+                if (userAddress.toLowerCase() !== project.creator.toLowerCase()) {
+                  alert('⚠️ 프로젝트 생성자만 후원을 마감할 수 있습니다.');
+                  return;
+                }
+
+                // ✅ 마감일이 지나야 가능
+                const now = Math.floor(Date.now() / 1000);
+                const deadlineTimestamp = project.deadline;
+                if (now <= deadlineTimestamp) {
+                  alert('⚠️ 마감일 이후에만 후원을 마감할 수 있습니다.');
+                  return;
+                }
+
+                const contract = new ethers.Contract(CONTRACT_ADDRESS, DFundABI.abi, signer);
+
+                const totalDonated = await contract.getTotalDonated(project.id);
+                const goalAmount = ethers.utils.parseEther(project.goalAmount);
+
+                let tx;
+
+                // ✅ 목표 금액 이상이면 자금 전달
+                if (totalDonated.gte(goalAmount)) {
+                  tx = await contract.releaseFundsToCreator(project.id, 1);
+                  alert('🎉 목표 달성! 자금이 창작자에게 전달됩니다.');
+                } else {
+                  // ✅ 목표 미달이면 환불 처리
+                  tx = await contract.changeProjectStatusAndRefund(project.id, 3); // 3 = FAILED
+                  alert('😢 목표 미달! 후원자에게 환불 처리됩니다.');
+                }
+
+                await tx.wait();
+                window.location.reload(); // 상태 갱신
+              } catch (err) {
+                console.error(err);
+                alert('❌ 후원 마감 중 오류 발생');
+              }
+            }}
+            style={{
+              marginTop: '1.5rem',
+              padding: '0.5rem 1rem',
+              backgroundColor: '#f44336',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+            }}
+          >
+            ⏹️ 후원 마감
+          </button>
+        )}
 
         {!isFundableStatus(project.status) && (
           <p style={{ color: 'red', marginTop: '0.5rem' }}>

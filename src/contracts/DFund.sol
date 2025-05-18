@@ -6,7 +6,7 @@ contract DFund {
 
     enum ProjectStatus {    // 프로젝트 진행 상태
         FUNDRAISING,   // 0: 모금 중
-        IN_PROGRESS,    // 1: 프로젝트 실행 중
+        IN_PROGRESS,    // 1: 프로젝트 진행 중
         COMPLETED,     // 2: 프로젝트 정상 완료
         FAILED,        // 3: 실패 (모금 실패 또는 중단)
         CANCELLED      // 4: 자발적 취소
@@ -24,8 +24,16 @@ contract DFund {
         ProjectStatus status;
     }
 
+    struct FundBalance {                  // ✅ 프로젝트별 자금 상태
+        uint totalDonated;               // ✅ 전체 후원액
+        uint transferredToCreator;       // ✅ 창작자에게 전달된 총액
+    }
+
     mapping(uint => Project) public projects;
-    mapping(uint => uint) public projectBalance;
+    mapping(uint => FundBalance) public projectFunds;                         // ✅ 프로젝트별 자금
+    mapping(uint => mapping(address => uint)) public donorBalances;           // ✅ 프로젝트별 후원자 잔액
+    mapping(uint => address[]) public projectDonors;                          // ✅ 프로젝트별 후원자 목록
+    mapping(uint => mapping(address => bool)) public hasDonated;             // ✅ 후원자 중복 체크
 
     // 프로젝트 등록 이벤트
     event ProjectRegistered(
@@ -114,7 +122,85 @@ contract DFund {
         require(projects[_projectId].isActive, "Invalid project");
         require(projects[_projectId].status == ProjectStatus.FUNDRAISING, "Project not fundraising");
 
-        projectBalance[_projectId] += msg.value;
+        donorBalances[_projectId][msg.sender] += msg.value;                         // ✅ 후원자 잔액 증가
+        projectFunds[_projectId].totalDonated += msg.value;                         // ✅ 전체 후원액 증가
+
+        if (!hasDonated[_projectId][msg.sender]) {                                  // ✅ 중복 체크 후 후원자 목록 등록
+            projectDonors[_projectId].push(msg.sender);
+            hasDonated[_projectId][msg.sender] = true;
+        }
+    }
+
+    // ✅ 창작자에게 후원금의 일부를 송금 (비율 입력: 0 ~ 1)
+    function releaseFundsToCreator(uint _projectId, uint _percent) external {
+        require(_percent <= 1, "Invalid percentage");
+        Project storage project = projects[_projectId];
+        require(project.creator == msg.sender, "Only creator can withdraw");
+
+        FundBalance storage fund = projectFunds[_projectId];
+        uint available = fund.totalDonated - fund.transferredToCreator;
+        require(available > 0, "No available funds");
+
+        uint payout = available * _percent;
+        require(payout > 0, "Payout too small");
+
+        address[] memory backers = projectDonors[_projectId];
+        for (uint i = 0; i < backers.length; i++) {
+            address donor = backers[i];
+            uint donorShare = donorBalances[_projectId][donor];
+            if (donorShare > 0) {
+                uint reduction = donorShare * _percent;                   // 🔄 각 후원자의 잔액에서 차감
+                donorBalances[_projectId][donor] -= reduction;
+            }
+        }
+
+        // ✅ 상태가 IN_PROGRESS가 아니면 자동 변경
+        if (project.status != ProjectStatus.IN_PROGRESS) {
+            project.status = ProjectStatus.IN_PROGRESS;
+    }
+
+        fund.transferredToCreator += payout;                                       // ✅ 누적 송금액 증가
+        payable(project.creator).transfer(payout);                                 // ✅ 실제 송금
+    }
+
+    // ✅ 특정 프로젝트에서 후원자의 현재 잔여 후원금
+    function getDonorBalance(uint _projectId, address _donor) public view returns (uint) {
+        return donorBalances[_projectId][_donor];
+    }
+
+    // ✅ 프로젝트별 총 후원금
+    function getTotalDonated(uint _projectId) public view returns (uint) {
+        return projectFunds[_projectId].totalDonated;
+        }
+
+    // ✅ 프로젝트별 남은 총 후원금
+    function getRemainingFunds(uint _projectId) public view returns (uint) {
+        FundBalance memory f = projectFunds[_projectId];
+        return f.totalDonated - f.transferredToCreator;
+    }
+
+    // FAILED(3) 또는 CANCELLED(4)로 상태 변경 및 후원금 환불불
+    function changeProjectStatusAndRefund(uint _projectId, uint8 newStatus) external {
+        require(newStatus == uint8(ProjectStatus.FAILED) || newStatus == uint8(ProjectStatus.CANCELLED), "Only FAILED or CANCELLED allowed");
+
+        Project storage project = projects[_projectId];
+        require(msg.sender == project.creator, "Only creator can change status");
+        require(project.isActive, "Project already inactive");
+
+        // 상태 변경
+        project.status = ProjectStatus(newStatus);
+        project.isActive = false;
+
+        // 환불 실행
+        address[] memory backers = projectDonors[_projectId];
+        for (uint i = 0; i < backers.length; i++) {
+            address donor = backers[i];
+            uint amount = donorBalances[_projectId][donor];
+            if (amount > 0) {
+                donorBalances[_projectId][donor] = 0;
+                payable(donor).transfer(amount);
+            }
+        }
     }
 
     // 후원 기간 마감 시 상태 변화 및 자금의 이동은 트랜잭션이 등록되어야만 진행할 수 있음. 즉, 자동으로 진행되지 않음.
